@@ -1,0 +1,13 @@
+Dataset,Comparison,ρ,95% CI,N
+JapaneseVowels,Patching vs Integrated Gradients,0.575,"[0.461, 0.676]",9
+PenDigits,Patching vs Integrated Gradients,0.372,"[0.299, 0.451]",20
+LSST,Patching vs Integrated Gradients,-0.122,"[-0.237, 0.011]",20
+JapaneseVowels,Patching vs Attention Entropy,0.207,"[0.099, 0.283]",9
+JapaneseVowels,Patching vs Attention Max,0.483,"[0.388, 0.574]",9
+JapaneseVowels,Patching vs Attention Variance,0.217,"[0.111, 0.300]",9
+PenDigits,Patching vs Attention Entropy,0.269,"[0.149, 0.360]",20
+PenDigits,Patching vs Attention Max,0.282,"[0.178, 0.369]",20
+PenDigits,Patching vs Attention Variance,0.272,"[0.160, 0.357]",20
+LSST,Patching vs Attention Entropy,0.184,"[0.057, 0.310]",20
+LSST,Patching vs Attention Max,0.170,"[0.043, 0.290]",20
+LSST,Patching vs Attention Variance,0.181,"[0.049, 0.303]",20

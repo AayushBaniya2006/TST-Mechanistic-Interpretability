@@ -1,0 +1,4 @@
+Dataset,Classes,Pairs (denoise),Pairs (noise),Avg ΔP (denoise)
+JapaneseVowels,4,9,9,0.5865
+PenDigits,8,35,35,0.1503
+LSST,13,37,37,0.0074

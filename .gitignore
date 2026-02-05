@@ -1,4 +1,38 @@
-*.xml
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+*.so
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDE
+.vscode/
+.idea/
+*.swp
 *.iml
-*.pyc
+*.xml
+
+# Environment
+venv/
+.env
+*.log
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+*.cover
+.hypothesis/
+
+# Temporary files
 *.tmp
+
+# Build
+build/
+dist/
+
+# Large files (optional - uncomment to exclude results)
+# Results/

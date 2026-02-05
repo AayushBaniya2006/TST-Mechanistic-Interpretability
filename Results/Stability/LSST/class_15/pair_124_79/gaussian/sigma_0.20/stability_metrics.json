@@ -1,0 +1,15 @@
+{
+  "rank_correlation": 0.9530434782608694,
+  "stability_score": 0.9882602805949185,
+  "topk_overlap_k3": 0.5,
+  "topk_overlap_k5": 1.0,
+  "topk_overlap_k10": 0.8181818181818182,
+  "valid": true,
+  "orig_prob": 0.9999980926513672,
+  "pert_prob": 0.999803364276886,
+  "recovery_delta": {
+    "mean_abs_diff": 2.944851494314967e-06,
+    "max_abs_diff": 6.0974451031370336e-05,
+    "std_diff": 1.2139856891157992e-05
+  }
+}

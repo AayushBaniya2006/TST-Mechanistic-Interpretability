@@ -1,69 +1,258 @@
 # Transformer Time Series Interpretability Toolkit
 
-This repository provides an end-to-end workflow for analysing Transformer-based time series classification (TSC) models through **mechanistic interpretability** methods. It contains ready-to-run notebooks, a modular training script and a collection of pre-trained models.
+![Python](https://img.shields.io/badge/python-3.9+-blue.svg)
+![License](https://img.shields.io/badge/license-MIT-green.svg)
+![Tests](https://img.shields.io/badge/tests-174%20passed-brightgreen.svg)
 
-*Author: Matiss Kalnare*
-*Supervisor: Niki van Stein*
+Mechanistic interpretability for Transformer-based time series classifiers via activation patching.
+
+---
+
+## Key Findings
+
+| Dataset | Significant Heads | Effect Size | Stability | Verdict |
+|---------|-------------------|-------------|-----------|---------|
+| **JapaneseVowels** | 21/24 (87.5%) | d = 3.35 (Large) | ρ = 0.884 | Reliable |
+| **PenDigits** | 24/24 (100%) | d = 1.22 (Large) | ρ = 0.894 | Reliable |
+| **LSST** | 0/24 (0%) | d = 0.50 (Small) | ρ = 0.484 | Unreliable |
+
+**Main conclusions:**
+1. Activation patching identifies causally important attention heads in time series Transformers
+2. Layer 0 heads are 2-4x more important than Layer 2 heads
+3. Findings are stable under input perturbations (for simpler datasets)
+4. Attention weights poorly predict causal importance (ρ ~ 0.2)
+5. Method fails on complex datasets (96 classes)
+
+---
+
+## Project Background
+
+### Original Work (Matiss Kalnare)
+
+The core activation patching framework:
+
+- **Core Patching Functions**: `sweep_heads()`, `sweep_layerwise_patch()`, `sweep_attention_head_positions()`
+- **TST Model Architecture**: 3-layer Transformer encoder with 8 attention heads per layer
+- **Visualization**: Heatmaps, causal graphs, attention overlays
+- **Interactive Exploration**: Jupyter notebook with widgets and sliders
+- **Initial Results**: JapaneseVowels and PenDigits patching experiments
+
+### My Extensions (Aayush Baniya)
+
+I added rigorous statistical validation and stability testing to transform exploratory results into publishable findings.
+
+#### New Modules (~3,840 lines of code)
+
+| Module | Lines | Purpose |
+|--------|-------|---------|
+| `statistics.py` | 913 | Bootstrap CIs (10k iterations), FDR correction, Cohen's d effect sizes |
+| `baselines.py` | 876 | Integrated Gradients, attention weight analysis, random patching baseline |
+| `stability_metrics.py` | 370 | Spearman rank correlation, top-K overlap, mechanism stability scores |
+| `metrics.py` | 628 | Logit difference, KL divergence, cross-entropy change |
+| `perturbations.py` | 247 | Gaussian noise, time warp, phase shift (label-preserving) |
+| `config.py` | 478 | Seed management, experiment configuration, reproducibility |
+
+#### What I Built
+
+| Contribution | Description |
+|--------------|-------------|
+| **Statistical Filtering** | Separates real findings from false positives using bootstrap CIs and FDR correction |
+| **Stability Testing** | Validates that discovered mechanisms are robust under realistic input perturbations |
+| **Baseline Comparisons** | Proves activation patching outperforms simpler methods (attention weights, Integrated Gradients) |
+| **LSST Analysis** | 74 new sample pairs revealing method limitations on complex datasets |
+| **Test Suite** | 174 automated tests across 9 files ensuring code correctness |
+| **Automation Scripts** | Full statistical pipeline executable with one command |
+
+#### Key Findings from My Analysis
+
+| Finding | Before My Analysis | After My Analysis |
+|---------|-------------------|-------------------|
+| LSST significant heads | 8/24 "significant" | **0/24** (all were false positives) |
+| Confidence in results | Point estimates only | 95% CIs with uncertainty quantification |
+| Stability validation | None | ρ > 0.88 for JV/PD, ρ = 0.48 for LSST |
+| Baseline comparison | None | Attention ≠ causation (ρ ~ 0.2) |
+
+---
+
+## Installation
+
+```bash
+git clone https://github.com/mathiisk/TSTpatching.git
+cd TSTpatching
+pip install -e ".[dev]"
+```
+
+Verify installation:
+```bash
+python -c "from Utilities import sweep_heads; print('OK')"
+pytest tests/ -v
+```
+
+## Quick Start
+
+```python
+import torch
+from Utilities import (
+    TimeSeriesTransformer, load_dataset, sweep_heads, get_probs,
+    get_head_importance, plot_influence, compute_confidence_interval,
+    apply_fdr_correction
+)
+
+# Load pre-trained model
+train_loader, test_loader = load_dataset("JapaneseVowels")
+model = TimeSeriesTransformer(input_dim=12, num_classes=9, seq_len=29)
+model.load_state_dict(torch.load("TST_models/TST_japanesevowels.pth"))
+
+# Get a sample pair (clean prediction vs misclassified)
+clean_x = ...  # shape: (1, seq_len, input_dim)
+corrupt_x = ...
+
+# Run activation patching across all heads
+patch_probs = sweep_heads(model, clean_x, corrupt_x, num_classes=9)
+baseline = get_probs(model, corrupt_x)
+
+# Analyze which heads matter
+importance = get_head_importance(patch_probs, baseline, true_label=0)
+plot_influence(patch_probs, baseline, true_label=0)
+
+# Add statistical rigor (Aayush's contribution)
+ci = compute_confidence_interval(importance, confidence=0.95, n_bootstrap=10000)
+print(f"Mean importance: {ci.mean:.3f} [{ci.lower:.3f}, {ci.upper:.3f}]")
+```
+
+---
 
 ## Repository Structure
 
 ```
-Notebooks/             - Interactive notebooks demonstrating the two analysis pipelines
-  Patching.ipynb       - Activation patching/causal tracing walkthrough
-  SAE.ipynb            - Sparse Autoencoder exploration
-  IPYNB_to_PY/         - Python script versions of the notebooks
+Utilities/                 Core library
+├── utils.py               Activation patching, sweeps, visualization (Matiss)
+├── TST_trainer.py         Model architecture, training (Matiss)
+├── statistics.py          Bootstrap CIs, FDR correction, effect sizes (Aayush)
+├── baselines.py           Integrated Gradients, attention baselines (Aayush)
+├── stability_metrics.py   Rank correlation, top-K overlap (Aayush)
+├── metrics.py             Logit diff, KL divergence, cross-entropy (Aayush)
+├── perturbations.py       Gaussian noise, time warp, phase shift (Aayush)
+└── config.py              Seed management, experiment configs (Aayush)
 
-Utilities/             - Helper code
-  TST_trainer.py       - Training/evaluation script and model definition
-  utils.py             - Patching and plotting utilities
+Scripts/                   Automation (Aayush)
+├── run_stability_experiments.py   Stability stress-testing pipeline
+└── run_complete_analysis.py       Full statistical pipeline
 
-TST_models/            - Pre-trained models for several datasets
-SAE_models/            - Example sparse autoencoder weights
-Results/               - Example results (plots, patched predictions, ...)
-requirements.txt       - Python package requirements
+Notebooks/
+├── Patching.ipynb                 Interactive exploration (Matiss)
+├── Patching_Stability.ipynb       Stability validation (Aayush)
+├── Statistical_Reanalysis.ipynb   Statistical analysis (Aayush)
+└── SAE.ipynb                      Sparse autoencoder (Matiss)
+
+tests/                     Test suite - 174 tests (Aayush)
+TST_models/                Pre-trained weights
+Results/                   Experimental outputs
+└── Summary/               Publication-ready tables & figures
 ```
 
-## Installation
-1. Clone the repository and install dependencies
-   ```bash
-   git clone https://github.com/mathiisk/TSTpatching.git
-   cd TSTpatching
-   pip install -r requirements.txt
-   ```
-   A GPU with CUDA is recommended but the code also runs on CPU.
+---
 
-## Quick Start
-Pre-trained weights for common datasets are provided in `TST_models`. You can immediately run the notebooks to reproduce the experiments.
+## Core API
 
-Open the activation patching notebook:
+### Patching (Original - Matiss)
+
+| Function | Description |
+|----------|-------------|
+| `sweep_heads(model, clean, corrupt, num_classes)` | Patch each attention head individually |
+| `sweep_layerwise_patch(model, clean, corrupt, num_classes)` | Patch entire layers |
+| `sweep_attention_head_positions(...)` | Patch at (layer, head, position) granularity |
+| `find_critical_patches(patch_probs, baseline, label, threshold)` | Find important head-position pairs |
+| `build_causal_graph(critical_patches)` | Build influence graph |
+
+### Statistics (Extension - Aayush)
+
+| Function | Description |
+|----------|-------------|
+| `compute_confidence_interval(data, confidence, n_bootstrap)` | Bootstrap CI with 10,000 iterations |
+| `compute_effect_size(treatment, control)` | Cohen's d with CI |
+| `apply_fdr_correction(p_values, method)` | Benjamini-Hochberg correction |
+
+### Stability (Extension - Aayush)
+
+| Function | Description |
+|----------|-------------|
+| `gaussian_noise(X, sigma)` | Add scaled Gaussian noise |
+| `time_warp(X, factor)` | Local time stretching |
+| `phase_shift(X, shift)` | Circular time shift |
+| `head_rank_correlation(baseline, perturbed)` | Spearman ρ of head rankings |
+| `topk_overlap(baseline, perturbed, k)` | Jaccard overlap of top-K heads |
+
+### Baselines (Extension - Aayush)
+
+| Function | Description |
+|----------|-------------|
+| `integrated_gradients_importance(model, x, target)` | IG attribution via Captum |
+| `attention_weight_importance(model, x)` | Attention entropy/max/variance |
+| `random_patching_baseline(model, x, n_samples)` | Null distribution |
+
+---
+
+## Running Experiments
+
 ```bash
-jupyter notebook Notebooks/Patching.ipynb
+# Run stability experiments on all datasets
+python Scripts/run_stability_experiments.py --dataset all
+
+# Run full statistical analysis (generates figures and tables)
+python Scripts/run_complete_analysis.py
+
+# Run tests
+pytest tests/ -v
 ```
-or the sparse autoencoder notebook:
+
+---
+
+## Results
+
+All results are in `Results/Summary/`:
+
+| File | Contents |
+|------|----------|
+| `COMPLETE_STATISTICAL_REPORT.md` | Executive summary of findings |
+| `data/confidence_intervals.csv` | 95% CIs for all 72 heads |
+| `data/fdr_corrected_pvalues.csv` | Multiple comparison correction |
+| `data/effect_sizes.csv` | Cohen's d with CIs |
+| `data/baseline_comparisons.csv` | Patching vs IG vs attention |
+| `data/stability_with_statistics.csv` | Perturbation results |
+| `figures/fig1-5.pdf` | Publication-ready figures |
+| `tables/table1-5.md` | Statistical tables |
+
+---
+
+## Reproducibility
+
+All experiments use:
+- **Random seed**: 42
+- **Bootstrap iterations**: 10,000
+- **FDR alpha**: 0.05
+- **Perturbation levels**: σ = {0.05, 0.10, 0.20}, factor = {0.05, 0.10, 0.20}, shift = {1, 2, 3}
+
+To reproduce:
 ```bash
-jupyter notebook Notebooks/SAE.ipynb
-```
-Step through the cells to load a model, run the analysis and display plots. The notebooks assume the working directory is the repository root.
-
-## Training a New Model
-`Utilities/TST_trainer.py` can train a fresh Transformer on any dataset from [timeseriesclassification.com](https://www.timeseriesclassification.com/dataset.php).
-
-```bash
-python Utilities/TST_trainer.py --dataset DATASET_NAME --epochs NUM_EPOCHS --batch_size BATCH_SIZE
+python Scripts/run_complete_analysis.py
 ```
 
-- `DATASET_NAME` should match one of the names on the website, e.g. `JapaneseVowels`.
-- `NUM_EPOCHS` defaults to `100` if not provided.
-- `BATCH_SIZE` defaults to `32`.
+---
 
-The resulting weights are stored as `TST_<dataset>.pth` under `TST_models/`.
+## Citation
 
+```bibtex
+@misc{tst-mechanistic-interp,
+  author = {Kalnare, Matiss and Baniya, Aayush},
+  title = {Mechanistic Interpretability for Time Series Transformers},
+  year = {2025},
+  url = {https://github.com/mathiisk/TSTpatching}
+}
+```
 
-## Sparse Autoencoders
-The notebook `Notebooks/SAE.ipynb` trains an autoencoder on intermediate activations of a Transformer. It highlights interpretable concepts that the model relies on. Pre-trained SAE weights are stored in `SAE_models/` and can be loaded by the notebook.
+---
 
-## Output & Results
-All figures and intermediate outputs generated by the notebooks are stored under `Results/` by default. Separate folders exist for each dataset so you can keep experiments organised.
+## License
 
-## BSc Thesis Context
-This code base accompanies a Bachelor thesis exploring whether interpretability techniques from NLP, namely activation patching and sparse autoencoders, can reveal causal mechanisms inside Transformer-based time series classifiers. The provided scripts and notebooks allow anyone to reproduce and extend the experiments.
+MIT License - see [LICENSE](LICENSE) for details.

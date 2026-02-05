@@ -1,0 +1,98 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tst-interpretability"
+version = "0.1.0"
+description = "Mechanistic interpretability for Time Series Transformers via activation patching"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.9"
+authors = [
+    {name = "Matiss Kalnare"},
+    {name = "Aayush Baniya"}
+]
+keywords = [
+    "mechanistic-interpretability",
+    "transformers",
+    "time-series",
+    "activation-patching",
+    "explainability",
+    "deep-learning"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+]
+dependencies = [
+    "torch>=2.0.0",
+    "numpy>=1.24.0",
+    "pandas>=2.0.0",
+    "scipy>=1.10.0",
+    "scikit-learn>=1.3.0",
+    "matplotlib>=3.7.0",
+    "seaborn>=0.12.0",
+    "networkx>=3.0",
+    "aeon>=0.8.0",
+    "statsmodels>=0.14.0",
+    "captum>=0.7.0",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+]
+notebooks = [
+    "ipywidgets>=8.0.0",
+    "ipympl>=0.9.0",
+    "jupyter>=1.0.0",
+]
+all = [
+    "tst-interpretability[dev,notebooks]",
+]
+
+[project.urls]
+Homepage = "https://github.com/mathiisk/TSTpatching"
+Documentation = "https://github.com/mathiisk/TSTpatching#readme"
+Repository = "https://github.com/mathiisk/TSTpatching"
+Issues = "https://github.com/mathiisk/TSTpatching/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["Utilities*"]
+
+[tool.setuptools.package-data]
+"*" = ["*.yaml", "*.yml", "*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+]
+
+[tool.coverage.run]
+source = ["Utilities"]
+omit = ["tests/*", "Notebooks/*", "Scripts/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]
