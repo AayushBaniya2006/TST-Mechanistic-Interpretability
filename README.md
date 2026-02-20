@@ -1,242 +1,134 @@
-# Transformer Time Series Interpretability Toolkit
+# Statistical Validation of Activation Patching in Time Series Transformers
 
-![Python](https://img.shields.io/badge/python-3.9+-blue.svg)
-![License](https://img.shields.io/badge/license-MIT-green.svg)
-![Tests](https://img.shields.io/badge/tests-174%20passed-brightgreen.svg)
+### Are the "Important" Heads Actually Important?
 
-Mechanistic interpretability for Transformer-based time series classifiers via activation patching.
+**Aayush Baniya** | [BlueDot Impact AI Safety Fundamentals](https://www.bluedot.org/)
 
 ---
 
-## Key Findings
+## Summary
 
-| Dataset | Significant Heads | Effect Size | Stability | Verdict |
-|---------|-------------------|-------------|-----------|---------|
-| **JapaneseVowels** | 21/24 (87.5%) | d = 3.35 (Large) | ρ = 0.884 | Reliable |
-| **PenDigits** | 24/24 (100%) | d = 1.22 (Large) | ρ = 0.894 | Reliable |
-| **LSST** | 0/24 (0%) | d = 0.50 (Small) | ρ = 0.484 | Unreliable |
+Activation patching on a Time Series Transformer identified 8 out of 24 attention heads as causally important on a 96-class dataset. After FDR correction, zero survived. Every one was a false positive. The heatmaps looked clean the whole time.
 
-**Main conclusions:**
-1. Activation patching identifies causally important attention heads in time series Transformers
-2. Layer 0 heads are 2-4x more important than Layer 2 heads
-3. Findings are stable under input perturbations (for simpler datasets)
-4. Attention weights poorly predict causal importance (ρ ~ 0.2)
-5. Method fails on complex datasets (96 classes)
+On simpler tasks (9-10 classes), the method works - 21-24 heads survive statistical correction with large effect sizes and stable rankings under perturbation. On complex tasks, it collapses. Without statistical validation, you can't tell the difference.
 
 ---
 
-## Project Background
+## Pipeline
 
-### Original Work (Matiss Kalnare)
+![Pipeline Diagram](Results/Summary/figures/pipeline_diagram.png)
 
-The core activation patching framework:
+A Time Series Transformer (3 layers, 8 heads per layer, 24 total) is trained on a classification task. Activation patching swaps each head's output between a correctly and incorrectly classified input, producing 24 raw importance scores.
 
-- **Core Patching Functions**: `sweep_heads()`, `sweep_layerwise_patch()`, `sweep_attention_head_positions()`
-- **TST Model Architecture**: 3-layer Transformer encoder with 8 attention heads per layer
-- **Visualization**: Heatmaps, causal graphs, attention overlays
-- **Interactive Exploration**: Jupyter notebook with widgets and sliders
-- **Initial Results**: JapaneseVowels and PenDigits patching experiments
+Those scores then go through:
+- **Bootstrap resampling** (10,000 iterations) for 95% confidence intervals
+- **FDR correction** (Benjamini-Hochberg) to control for 24 simultaneous tests
+- **Stability testing** - perturb inputs with noise, re-run patching, check if rankings hold
+- **Baseline comparisons** against Integrated Gradients and attention weights
+- **Effect sizes** (Cohen's d) for magnitude
 
-### My Extensions (Aayush Baniya)
-
-I added rigorous statistical validation and stability testing to transform exploratory results into publishable findings.
-
-#### New Modules (~3,840 lines of code)
-
-| Module | Lines | Purpose |
-|--------|-------|---------|
-| `statistics.py` | 913 | Bootstrap CIs (10k iterations), FDR correction, Cohen's d effect sizes |
-| `baselines.py` | 876 | Integrated Gradients, attention weight analysis, random patching baseline |
-| `stability_metrics.py` | 370 | Spearman rank correlation, top-K overlap, mechanism stability scores |
-| `metrics.py` | 628 | Logit difference, KL divergence, cross-entropy change |
-| `perturbations.py` | 247 | Gaussian noise, time warp, phase shift (label-preserving) |
-| `config.py` | 478 | Seed management, experiment configuration, reproducibility |
-
-#### What I Built
-
-| Contribution | Description |
-|--------------|-------------|
-| **Statistical Filtering** | Separates real findings from false positives using bootstrap CIs and FDR correction |
-| **Stability Testing** | Validates that discovered mechanisms are robust under realistic input perturbations |
-| **Baseline Comparisons** | Proves activation patching outperforms simpler methods (attention weights, Integrated Gradients) |
-| **LSST Analysis** | 74 new sample pairs revealing method limitations on complex datasets |
-| **Test Suite** | 174 automated tests across 9 files ensuring code correctness |
-| **Automation Scripts** | Full statistical pipeline executable with one command |
-
-#### Key Findings from My Analysis
-
-| Finding | Before My Analysis | After My Analysis |
-|---------|-------------------|-------------------|
-| LSST significant heads | 8/24 "significant" | **0/24** (all were false positives) |
-| Confidence in results | Point estimates only | 95% CIs with uncertainty quantification |
-| Stability validation | None | ρ > 0.88 for JV/PD, ρ = 0.48 for LSST |
-| Baseline comparison | None | Attention ≠ causation (ρ ~ 0.2) |
-
----
-
-## Installation
-
-```bash
-git clone https://github.com/mathiisk/TSTpatching.git
-cd TSTpatching
-pip install -e ".[dev]"
-```
-
-Verify installation:
-```bash
-python -c "from Utilities import sweep_heads; print('OK')"
-pytest tests/ -v
-```
-
-## Quick Start
-
-```python
-import torch
-from Utilities import (
-    TimeSeriesTransformer, load_dataset, sweep_heads, get_probs,
-    get_head_importance, plot_influence, compute_confidence_interval,
-    apply_fdr_correction
-)
-
-# Load pre-trained model
-train_loader, test_loader = load_dataset("JapaneseVowels")
-model = TimeSeriesTransformer(input_dim=12, num_classes=9, seq_len=29)
-model.load_state_dict(torch.load("TST_models/TST_japanesevowels.pth"))
-
-# Get a sample pair (clean prediction vs misclassified)
-clean_x = ...  # shape: (1, seq_len, input_dim)
-corrupt_x = ...
-
-# Run activation patching across all heads
-patch_probs = sweep_heads(model, clean_x, corrupt_x, num_classes=9)
-baseline = get_probs(model, corrupt_x)
-
-# Analyze which heads matter
-importance = get_head_importance(patch_probs, baseline, true_label=0)
-plot_influence(patch_probs, baseline, true_label=0)
-
-# Add statistical rigor (Aayush's contribution)
-ci = compute_confidence_interval(importance, confidence=0.95, n_bootstrap=10000)
-print(f"Mean importance: {ci.mean:.3f} [{ci.lower:.3f}, {ci.upper:.3f}]")
-```
-
----
-
-## Repository Structure
-
-```
-Utilities/                 Core library
-├── utils.py               Activation patching, sweeps, visualization (Matiss)
-├── TST_trainer.py         Model architecture, training (Matiss)
-├── statistics.py          Bootstrap CIs, FDR correction, effect sizes (Aayush)
-├── baselines.py           Integrated Gradients, attention baselines (Aayush)
-├── stability_metrics.py   Rank correlation, top-K overlap (Aayush)
-├── metrics.py             Logit diff, KL divergence, cross-entropy (Aayush)
-├── perturbations.py       Gaussian noise, time warp, phase shift (Aayush)
-└── config.py              Seed management, experiment configs (Aayush)
-
-Scripts/                   Automation (Aayush)
-├── run_stability_experiments.py   Stability stress-testing pipeline
-└── run_complete_analysis.py       Full statistical pipeline
-
-Notebooks/
-├── Patching.ipynb                 Interactive exploration (Matiss)
-├── Patching_Stability.ipynb       Stability validation (Aayush)
-├── Statistical_Reanalysis.ipynb   Statistical analysis (Aayush)
-└── SAE.ipynb                      Sparse autoencoder (Matiss)
-
-tests/                     Test suite - 174 tests (Aayush)
-TST_models/                Pre-trained weights
-Results/                   Experimental outputs
-└── Summary/               Publication-ready tables & figures
-```
-
----
-
-## Core API
-
-### Patching (Original - Matiss)
-
-| Function | Description |
-|----------|-------------|
-| `sweep_heads(model, clean, corrupt, num_classes)` | Patch each attention head individually |
-| `sweep_layerwise_patch(model, clean, corrupt, num_classes)` | Patch entire layers |
-| `sweep_attention_head_positions(...)` | Patch at (layer, head, position) granularity |
-| `find_critical_patches(patch_probs, baseline, label, threshold)` | Find important head-position pairs |
-| `build_causal_graph(critical_patches)` | Build influence graph |
-
-### Statistics (Extension - Aayush)
-
-| Function | Description |
-|----------|-------------|
-| `compute_confidence_interval(data, confidence, n_bootstrap)` | Bootstrap CI with 10,000 iterations |
-| `compute_effect_size(treatment, control)` | Cohen's d with CI |
-| `apply_fdr_correction(p_values, method)` | Benjamini-Hochberg correction |
-
-### Stability (Extension - Aayush)
-
-| Function | Description |
-|----------|-------------|
-| `gaussian_noise(X, sigma)` | Add scaled Gaussian noise |
-| `time_warp(X, factor)` | Local time stretching |
-| `phase_shift(X, shift)` | Circular time shift |
-| `head_rank_correlation(baseline, perturbed)` | Spearman ρ of head rankings |
-| `topk_overlap(baseline, perturbed, k)` | Jaccard overlap of top-K heads |
-
-### Baselines (Extension - Aayush)
-
-| Function | Description |
-|----------|-------------|
-| `integrated_gradients_importance(model, x, target)` | IG attribution via Captum |
-| `attention_weight_importance(model, x)` | Attention entropy/max/variance |
-| `random_patching_baseline(model, x, n_samples)` | Null distribution |
-
----
-
-## Running Experiments
-
-```bash
-# Run stability experiments on all datasets
-python Scripts/run_stability_experiments.py --dataset all
-
-# Run full statistical analysis (generates figures and tables)
-python Scripts/run_complete_analysis.py
-
-# Run tests
-pytest tests/ -v
-```
+~3,840 lines of statistical code, 174 automated tests.
 
 ---
 
 ## Results
 
-All results are in `Results/Summary/`:
+### Head Importance
 
-| File | Contents |
-|------|----------|
-| `COMPLETE_STATISTICAL_REPORT.md` | Executive summary of findings |
-| `data/confidence_intervals.csv` | 95% CIs for all 72 heads |
-| `data/fdr_corrected_pvalues.csv` | Multiple comparison correction |
-| `data/effect_sizes.csv` | Cohen's d with CIs |
-| `data/baseline_comparisons.csv` | Patching vs IG vs attention |
-| `data/stability_with_statistics.csv` | Perturbation results |
-| `figures/fig1-5.pdf` | Publication-ready figures |
-| `tables/table1-5.md` | Statistical tables |
+![Head Importance Heatmaps](Results/Summary/figures/fig1_head_importance.png)
+
+Left to right: JapaneseVowels, PenDigits, LSST. Stars mark heads that survived FDR correction. JapaneseVowels has deep reds and 21 stars. LSST is near-zero everywhere with no stars.
+
+| Dataset | Classes | Significant Heads | Cohen's d | Stability (rho) |
+|---------|---------|-------------------|-----------|------------------|
+| JapaneseVowels | 9 | 21/24 | 3.35 | 0.884 |
+| PenDigits | 10 | 24/24 | 1.22 | 0.894 |
+| LSST | 96 | 0/24 | 0.50 | 0.484 |
+
+### Effect Sizes
+
+![Effect Sizes by Head](Results/Summary/figures/fig4_effect_sizes.png)
+
+Per-head Cohen's d across all three datasets. JapaneseVowels and PenDigits sit in the medium-to-large range. LSST clusters around zero - most confidence intervals cross the zero line.
+
+### Stability
+
+![Stability Results](Results/Summary/figures/fig3_stability.png)
+
+How consistent are head rankings when you add noise to the input? JapaneseVowels and PenDigits stay above the 0.7 stability threshold. LSST is at 0.48 - the rankings reshuffle every time.
+
+Tested with three perturbation types (Gaussian noise, time warp, phase shift) at multiple strengths. Bar heights are averages across all perturbations.
+
+### Attention Weights vs Causal Importance
+
+![Baseline Comparison](Results/Summary/figures/fig2_baseline_comparison.png)
+
+Correlation between attention metrics and patching effects: rho around 0.2 across all datasets. Integrated Gradients does better on simple tasks (rho = 0.575) but goes negative on LSST. Cheaper attribution methods don't track causal importance.
+
+### Observed Effects vs Null
+
+![Null Distribution](Results/Summary/figures/fig5_null_distribution.png)
+
+Each dot is one sample pair's maximum patching effect. Black bar is the 95th percentile of the null distribution. JapaneseVowels sits well above. LSST clusters right around the null - indistinguishable from chance.
 
 ---
 
-## Reproducibility
+## Why LSST Fails
 
-All experiments use:
-- **Random seed**: 42
-- **Bootstrap iterations**: 10,000
-- **FDR alpha**: 0.05
-- **Perturbation levels**: σ = {0.05, 0.10, 0.20}, factor = {0.05, 0.10, 0.20}, shift = {1, 2, 3}
+With 96 output classes, probability mass per class is ~1%. Single-head patching produces shifts of 0.1-0.5% - below the noise floor. The method lacks statistical power once the output space dilutes per-head effects below detectability.
 
-To reproduce:
+This is a complexity-dependent ceiling on head-level causal attribution.
+
+---
+
+## Reproducing
+
 ```bash
-python Scripts/run_complete_analysis.py
+git clone https://github.com/AayushBaniya2006/TST-Mechanistic-Interpretability.git
+cd TST-Mechanistic-Interpretability
+pip install -e ".[dev]"
+
+python Scripts/run_complete_analysis.py        # Full statistical pipeline
+python Scripts/run_stability_experiments.py    # Stability testing
+pytest tests/ -v                               # 174 tests
 ```
+
+Seed 42, 10,000 bootstrap resamples, FDR alpha = 0.05.
+
+---
+
+## Repo Structure
+
+```
+Utilities/
+├── statistics.py          Bootstrap CIs, FDR correction, effect sizes
+├── baselines.py           Integrated Gradients, attention weight analysis
+├── stability_metrics.py   Rank correlation, top-K overlap
+├── metrics.py             Logit diff, KL divergence, cross-entropy
+├── perturbations.py       Gaussian noise, time warp, phase shift
+├── config.py              Seed management, experiment configs
+├── utils.py               Activation patching, sweeps, visualization
+└── TST_trainer.py         Model architecture, training
+
+Results/Summary/
+├── figures/               fig1-fig5 + pipeline diagram
+├── tables/                Statistical tables
+└── data/                  CIs, p-values, effect sizes, stability scores
+
+tests/                     174 automated tests
+Scripts/                   Pipeline automation
+Notebooks/                 Interactive exploration
+TST_models/                Pre-trained weights
+```
+
+---
+
+## Open Questions
+
+- Where between 10 and 96 classes the ceiling is
+- Whether group-level patching recovers signal on complex tasks
+- Whether head importance rankings change across training seeds
+- How this extends to other Transformer architectures
 
 ---
 
@@ -244,15 +136,15 @@ python Scripts/run_complete_analysis.py
 
 ```bibtex
 @misc{tst-mechanistic-interp,
-  author = {Kalnare, Matiss and Baniya, Aayush},
-  title = {Mechanistic Interpretability for Time Series Transformers},
+  author = {Baniya, Aayush and Kalnare, Matiss},
+  title = {Statistical Validation of Activation Patching in Time Series Transformers},
   year = {2025},
-  url = {https://github.com/mathiisk/TSTpatching}
+  url = {https://github.com/AayushBaniya2006/TST-Mechanistic-Interpretability}
 }
 ```
 
 ---
 
-## License
+Done through [BlueDot Impact AI Safety Fundamentals](https://www.bluedot.org/).
 
-MIT License - see [LICENSE](LICENSE) for details.
+The activation patching framework this builds on was created by Matiss Kalnare: [github.com/mathiisk/TST-Mechanistic-Interpretability](https://github.com/mathiisk/TST-Mechanistic-Interpretability)

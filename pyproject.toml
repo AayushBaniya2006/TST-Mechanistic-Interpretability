@@ -10,8 +10,8 @@ readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.9"
 authors = [
-    {name = "Matiss Kalnare"},
-    {name = "Aayush Baniya"}
+    {name = "Aayush Baniya"},
+    {name = "Matiss Kalnare"}
 ]
 keywords = [
     "mechanistic-interpretability",
@@ -62,10 +62,10 @@ all = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/mathiisk/TSTpatching"
-Documentation = "https://github.com/mathiisk/TSTpatching#readme"
-Repository = "https://github.com/mathiisk/TSTpatching"
-Issues = "https://github.com/mathiisk/TSTpatching/issues"
+Homepage = "https://github.com/AayushBaniya2006/TST-Mechanistic-Interpretability"
+Documentation = "https://github.com/AayushBaniya2006/TST-Mechanistic-Interpretability#readme"
+Repository = "https://github.com/AayushBaniya2006/TST-Mechanistic-Interpretability"
+Issues = "https://github.com/AayushBaniya2006/TST-Mechanistic-Interpretability/issues"
 
 [tool.setuptools.packages.find]
 where = ["."]

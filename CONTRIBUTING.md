@@ -6,8 +6,8 @@ Thank you for your interest in contributing!
 
 ```bash
 # Clone the repository
-git clone https://github.com/mathiisk/TSTpatching.git
-cd TSTpatching
+git clone https://github.com/AayushBaniya2006/TST-Mechanistic-Interpretability.git
+cd TST-Mechanistic-Interpretability
 
 # Install in development mode
 pip install -e ".[dev]"
